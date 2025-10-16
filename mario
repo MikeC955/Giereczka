@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Platformówka - Hardkorowa Trudność!</title>
+    <style>
+        body {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        h1 {
+            color: #3498db;
+            text-shadow: 2px 2px #1f2c38;
+        }
+        #gameContainer {
+            position: relative;
+        }
+        canvas {
+            background-color: #87CEEB;
+            border: 4px solid #34495e;
+            border-radius: 8px;
+            display: block;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+        }
+        #startButton {
+            padding: 20px 40px;
+            font-size: 24px;
+            color: white;
+            background-color: #27ae60;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color: 0.3s;
+            border-bottom: 4px solid #219d52;
+        }
+        #startButton:hover {
+            background-color: #2ecc71;
+        }
+        #loadingText {
+            color: white;
+            font-size: 20px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Super Platformówka - Hardkorowa Trudność!</h1>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="startScreen">
+            <button id="startButton" disabled>Ładowanie...</button>
+        </div>
+    </div>
+
+    <script>
+        // --- USTAWIENIA GRY ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800;
+        canvas.height = 600;
+
+        // --- DŹWIĘK ---
+        let audioCtx;
+        let audioInitialized = false;
+
+        // --- GRAFIKI (SPRITES) ---
+        const sprites = {};
+        let spritesLoaded = 0;
+        const totalSprites = 10; 
+
+        function onSpriteLoad() {
+            spritesLoaded++;
+            if (spritesLoaded === totalSprites) {
+                const startButton = document.getElementById('startButton');
+                startButton.disabled = false;
+                startButton.textContent = "Rozpocznij Grę";
+            }
+        }
+        
+        function loadSprites() {
+            const playerSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#e74c3c" rx="5"/><rect x="4" y="4" width="32" height="32" fill="#c0392b" rx="3"/><circle cx="13" cy="16" r="5" fill="white"/><circle cx="27" cy="16" r="5" fill="white"/><circle cx="14" cy="17" r="2.5" fill="black"/><circle cx="26" cy="17" r="2.5" fill="black"/></svg>`;
+            const enemySVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30"><path d="M5,30 v-5 h20 v5 z" fill="#D2B48C"/><path d="M2.5,15 C2.5,5 27.5,5 27.5,15 A15 15 0 0 1 2.5,15" fill="#8B4513"/><path d="M9,12 l-3,3 M12,12 l3,3" stroke="white" stroke-width="2.5" stroke-linecap="round"/><path d="M21,12 l3,3 M18,12 l-3,3" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+            const coinSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10" fill="#f1c40f"/><circle cx="10" cy="10" r="8" fill="#f39c12"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="12" font-family="Arial" fill="white" font-weight="bold">$</text></svg>`;
+            const goalSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50"><rect x="5" y="0" width="5" height="50" fill="#bdc3c7"/><polygon points="10,5 40,15 10,25" fill="#e67e22"/></svg>`;
+            
+            const brickSVG = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" fill="#d35400"/><path d="M0 20 H40 M20 0 V20 M0 40 V20 H20 V40 H0 M20 20 H40 V40 H20Z" stroke="#a04000" stroke-width="2"/></svg>`;
+            const groundSVG = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" fill="#27ae60"/><path d="M0,5 L40,5 M0,15 L40,15 M0,25 L40,25 M0,35 L40,35" stroke="#219d52" stroke-width="2"/></svg>`;
+            const platformSVG = `<svg width="40" height="20" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="20" fill="#2ecc71" rx="3"/><circle cx="10" cy="10" r="3" fill="#27ae60"/><circle cx="30" cy="10" r="4" fill="#27ae60"/></svg>`;
+            
+            const questionBlockSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#f39c12" rx="4"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="30" font-family="Arial" fill="white" font-weight="bold">?</text></svg>`;
+            const usedBlockSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#7f8c8d" rx="4"/><rect x="5" y="5" width="30" height="30" fill="#95a5a6" rx="2"/></svg>`;
+            const powerUpSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30"><path d="M5,30 v-10 h20 v10 z" fill="#f2d7d5"/><path d="M2.5,15 C2.5,5 27.5,5 27.5,15 A15 15 0 0 1 2.5,15" fill="#e74c3c"/><circle cx="9" cy="10" r="3" fill="white"/><circle cx="21" cy="10" r="3" fill="white"/><circle cx="15" cy="17" r="3" fill="white"/></svg>`;
+
+            function createImg(svg) {
+                const img = new Image();
+                img.onload = onSpriteLoad;
+                img.src = 'data:image/svg+xml;base64,' + btoa(svg);
+                return img;
+            }
+
+            sprites.player = createImg(playerSVG);
+            sprites.enemy = createImg(enemySVG);
+            sprites.coin = createImg(coinSVG);
+            sprites.goal = createImg(goalSVG);
+            sprites.questionBlock = createImg(questionBlockSVG);
+            sprites.usedBlock = createImg(usedBlockSVG);
+            sprites.powerUp = createImg(powerUpSVG);
+
+
+            const brickImg = new Image();
+            brickImg.onload = () => { sprites.brickPattern = ctx.createPattern(brickImg, 'repeat'); onSpriteLoad(); };
+            brickImg.src = 'data:image/svg+xml;base64,' + btoa(brickSVG);
+
+            const groundImg = new Image();
+            groundImg.onload = () => { sprites.groundPattern = ctx.createPattern(groundImg, 'repeat'); onSpriteLoad(); };
+            groundImg.src = 'data:image/svg+xml;base64,' + btoa(groundSVG);
+
+            const platformImg = new Image();
+            platformImg.onload = () => { sprites.platformPattern = ctx.createPattern(platformImg, 'repeat'); onSpriteLoad(); };
+            platformImg.src = 'data:image/svg+xml;base64,' + btoa(platformSVG);
+        }
+        
+        // --- START GRY ---
+        const startButton = document.getElementById('startButton');
+        const startScreen = document.getElementById('startScreen');
+        
+        startButton.addEventListener('click', () => {
+            if (!audioInitialized) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                audioInitialized = true;
+            }
+            startScreen.style.display = 'none';
+            resetLevel(true);
+            gameLoop();
+        });
+
+        // --- ZMIENNE GŁÓWNE ---
+        const worldWidth = 6000; 
+        const gravity = 0.6;
+        const blockSize = 40;
+        const groundY = 560;
+        const hitboxTolerance = 5;
+
+        let platforms = [], coins = [], enemies = [], goal = {}, interactiveBlocks = [], powerUps = [], effects = [];
+        let score = 0, levelComplete = false, gameOver = false, levelData = {};
+        let currentLevel = 1;
+
+        const player = { x: 100, y: 400, width: 40, height: 40, speed: 5, velocityY: 0, isGrounded: false, jumpStrength: -15, state: 'small', invincibleTimer: 0 };
+        const camera = { 
+            x: 0, 
+            y: 0,
+            followPlayer: function() { 
+                const deadZoneStartX = canvas.width * 0.3; 
+                const deadZoneEndX = canvas.width * 0.7; 
+                const playerScreenX = player.x - this.x; 
+                if (playerScreenX > deadZoneEndX) this.x = player.x - deadZoneEndX; 
+                else if (playerScreenX < deadZoneStartX) this.x = player.x - deadZoneStartX; 
+                
+                if (this.x < 0) this.x = 0; 
+                if (this.x > worldWidth - canvas.width) this.x = worldWidth - canvas.width;
+
+                let targetY = groundY + 40 - canvas.height;
+                if(player.y < groundY - canvas.height / 2) {
+                    targetY = player.y - canvas.height / 2;
+                }
+                this.y += (targetY - this.y) * 0.1;
+
+                if (this.y < 0) this.y = 0;
+                if (this.y > (groundY + 40) - canvas.height) this.y = (groundY + 40) - canvas.height;
+            } 
+        };
+
+        // --- STEROWANIE ---
+        const keys = { right: false, left: false };
+        document.addEventListener('keydown', (e) => { 
+            if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = true; 
+            if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = true; 
+            if ((e.key === 'ArrowUp' || e.key.toLowerCase() === 'w' || e.key === ' ') && player.isGrounded) { 
+                player.velocityY = player.jumpStrength; 
+                player.isGrounded = false; 
+                playSound('jump'); 
+            } 
+        });
+        document.addEventListener('keyup', (e) => { 
+            if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = false; 
+            if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = false; 
+        });
+        
+        // --- RYSOWANIE I LOGIKA ---
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            const viewStart = camera.x - blockSize;
+            const viewEnd = camera.x + canvas.width + blockSize;
+            const viewTop = camera.y - blockSize;
+            const viewBottom = camera.y + canvas.height + blockSize;
+
+            [...platforms, ...interactiveBlocks].forEach(p => {
+                if (p.x + p.width > viewStart && p.x < viewEnd && p.y + p.height > viewTop && p.y < viewBottom) {
+                    const yPos = p.y + (p.animYOffset || 0);
+                    if (p.type === 'interactive') {
+                        ctx.drawImage(p.isUsed ? sprites.usedBlock : sprites.questionBlock, p.x, yPos, p.width, p.height);
+                    } else {
+                        if (p.color === '#d35400') ctx.fillStyle = sprites.brickPattern;
+                        else if (p.color === '#27ae60') ctx.fillStyle = sprites.groundPattern;
+                        else ctx.fillStyle = sprites.platformPattern;
+                        ctx.fillRect(p.x, yPos, p.width, p.height);
+                    }
+                }
+            });
+            powerUps.forEach(p => {
+                if (p.x + p.width > viewStart && p.x < viewEnd && p.y + p.height > viewTop && p.y < viewBottom) ctx.drawImage(sprites.powerUp, p.x, p.y, p.width, p.height)
+            });
+            coins.forEach(c => {
+                 if (c.x + c.width > viewStart && c.x < viewEnd && c.y + c.height > viewTop && c.y < viewBottom) ctx.drawImage(sprites.coin, c.x, c.y, c.width, c.height)
+            });
+            enemies.forEach(e => {
+                if (e.x + e.width > viewStart && e.x < viewEnd && e.y + e.height > viewTop && e.y < viewBottom) ctx.drawImage(sprites.enemy, e.x, e.y, e.width, e.height)
+            });
+             effects.forEach(effect => {
+                if(effect.x + (effect.width || 20) < viewStart || effect.x > viewEnd || effect.y + (effect.height || 20) < viewTop || effect.y > viewBottom) return;
+                
+                if (effect.type === 'coin-pop') {
+                    ctx.drawImage(sprites.coin, effect.x + 10, effect.y, 20, 20);
+                } else if (effect.type === 'debris') {
+                    ctx.fillStyle = '#a04000';
+                    ctx.fillRect(effect.x, effect.y, effect.width, effect.height);
+                }
+            });
+
+            ctx.drawImage(sprites.goal, goal.x, goal.y, goal.width, goal.height);
+            
+            ctx.globalAlpha = (player.invincibleTimer > 0 && Math.floor(player.invincibleTimer / 10) % 2 === 0) ? 0.5 : 1;
+            ctx.drawImage(sprites.player, player.x, player.y, player.width, player.height);
+            ctx.globalAlpha = 1;
+            
+            ctx.restore();
+
+            // Rysowanie interfejsu
+            ctx.fillStyle = "white"; ctx.font = "24px Arial"; 
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 3;
+            ctx.shadowOffsetY = 2;
+            ctx.textAlign = "left";
+            ctx.fillText("Wynik: " + score, 10, 30);
+            ctx.textAlign = "right";
+            ctx.fillText("Poziom: " + currentLevel, canvas.width - 10, 30);
+            ctx.shadowColor = 'transparent';
+
+            if (levelComplete) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "white"; ctx.font = "40px Arial"; ctx.textAlign = "center";
+                ctx.fillText(`Gratulacje! Twój wynik: ${score}`, canvas.width / 2, canvas.height / 2);
+            }
+             if (gameOver) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#e74c3c"; ctx.font = "50px Arial"; ctx.textAlign = "center";
+                ctx.fillText("KONIEC GRY", canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        function update() {
+            if (levelComplete || gameOver) return;
+            
+            if (player.invincibleTimer > 0) player.invincibleTimer--;
+
+            if (player.y > groundY + 100) {
+                playSound('death');
+                gameOver = true;
+                setTimeout(() => resetLevel(false), 2000);
+                return;
+            }
+            
+            let allPlatforms = [...platforms, ...interactiveBlocks];
+            const nearbyPlatforms = allPlatforms.filter(p => p.x + p.width > player.x - 200 && p.x < player.x + player.width + 200);
+
+            const originalX = player.x;
+            if (keys.right && player.x < worldWidth - player.width) player.x += player.speed;
+            if (keys.left && player.x > 0) player.x -= player.speed;
+            for (const p of nearbyPlatforms) { if (player.y + player.height > p.y + (p.animYOffset || 0) && player.y < p.y + (p.animYOffset || 0) + p.height && player.x + player.width > p.x && player.x < p.x + p.width) { player.x = originalX; break; } }
+
+            player.velocityY += gravity; player.y += player.velocityY; player.isGrounded = false;
+            for (let i = nearbyPlatforms.length - 1; i >= 0; i--) {
+                const p = nearbyPlatforms[i];
+                const pY = p.y + (p.animYOffset || 0);
+
+                if (player.x + player.width > p.x - hitboxTolerance && player.x < p.x + p.width + hitboxTolerance) {
+                    if (player.velocityY >= 0 && (player.y - player.velocityY) + player.height <= pY + 1 && player.y + player.height >= pY) { player.y = pY - player.height; player.isGrounded = true; player.velocityY = 0; break; }
+                    if (player.velocityY < 0 && (player.y - player.velocityY) >= pY + p.height && player.y <= pY + p.height) {
+                         player.y = pY + p.height; player.velocityY = 0; 
+                         if (p.isAnimating) continue;
+
+                         if (p.type === 'interactive' && !p.isUsed) {
+                             p.isUsed = true;
+                             triggerBlockBump(p);
+                             if (p.contains === 'powerup') {
+                                 powerUps.push({x: p.x + 5, y: p.y - 30, width: 30, height: 30, velocityY: -5, isGrounded: false});
+                                 playSound('powerup-appears');
+                             } else {
+                                 score += 10;
+                                 playSound('coin');
+                                 effects.push({ type: 'coin-pop', x: p.x, y: p.y, velocityY: -5, timer: 30 });
+                             }
+                         } else if (p.color === '#d35400' && !p.type) {
+                             triggerBlockBump(p);
+                             if (player.state === 'big') {
+                                p.toBeDestroyed = true;
+                             } else {
+                                playSound('bump');
+                             }
+                         }
+                         break; 
+                    }
+                }
+            }
+            
+            // Animacje
+            [...platforms, ...interactiveBlocks].forEach(p => {
+                if (p.isAnimating) {
+                    p.animYOffset += p.animVelocityY;
+                    p.animVelocityY += gravity;
+                    if (p.animYOffset >= 0) {
+                        p.isAnimating = false;
+                        p.animYOffset = 0;
+                        if(p.toBeDestroyed) {
+                            createDebrisEffect(p.x, p.y);
+                            platforms = platforms.filter(plat => plat !== p);
+                            interactiveBlocks = interactiveBlocks.filter(block => block !== p);
+                            playSound('break');
+                        }
+                    }
+                }
+            });
+
+            powerUps.forEach((p, index) => {
+                if (!p.isGrounded) {
+                    p.velocityY += gravity * 0.5; p.y += p.velocityY;
+                    for (const plat of nearbyPlatforms) {
+                        if (p.x < plat.x + plat.width && p.x + p.width > plat.x && p.y + p.height >= plat.y + (plat.animYOffset || 0) && p.y < plat.y + (plat.animYOffset || 0)) {
+                            p.y = plat.y - p.height; p.velocityY = 0; p.isGrounded = true;
+                        }
+                    }
+                }
+                if (player.x < p.x + p.width && player.x + p.width > p.x && player.y < p.y + p.height && player.y + p.height > p.y) {
+                    if (player.state === 'small') {
+                        player.state = 'big'; 
+                        player.height = 60;
+                        player.y -= 20;
+                    }
+                    score += 100; playSound('powerup-collect'); powerUps.splice(index, 1);
+                }
+            });
+
+             for (let i = effects.length - 1; i >= 0; i--) {
+                const effect = effects[i];
+                effect.timer--;
+                effect.y += effect.velocityY;
+                effect.velocityY += gravity;
+                if(effect.velocityX) effect.x += effect.velocityX;
+                
+                if (effect.timer <= 0) {
+                    effects.splice(i, 1);
+                }
+            }
+
+            for (let i = coins.length - 1; i >= 0; i--) { const coin = coins[i]; if (player.x < coin.x + coin.width && player.x + player.width > coin.x && player.y < coin.y + coin.height && player.y + player.height > coin.y) { score += 10; coins.splice(i, 1); playSound('coin'); } }
+            for (let i = enemies.length - 1; i >= 0; i--) { const enemy = enemies[i]; enemy.x += enemy.speed * enemy.direction; if (enemy.x <= enemy.patrolRange.start || enemy.x + enemy.width >= enemy.patrolRange.end) { enemy.direction *= -1; } if (player.invincibleTimer === 0 && player.x < enemy.x + enemy.width && player.x + player.width > enemy.x && player.y < enemy.y + enemy.height && player.y + player.height > enemy.y) { if (player.velocityY > 0 && (player.y - player.velocityY) + player.height <= enemy.y + 10) { enemies.splice(i, 1); score += 50; player.velocityY = -8; playSound('stomp'); } else { 
+                if (player.state === 'big') {
+                    player.state = 'small'; 
+                    player.height = 40;
+                    player.y += 20; 
+                    player.invincibleTimer = 120;
+                    playSound('pipe');
+                } else {
+                    playSound('death'); gameOver = true; setTimeout(() => resetLevel(false), 2000); return; 
+                }
+            } } }
+            if (player.x < goal.x + goal.width && player.x + player.width > goal.x && player.y < goal.y + goal.height && player.y + player.height > goal.y) { 
+                playSound('win'); levelComplete = true; 
+                setTimeout(() => { currentLevel++; resetLevel(true); }, 3000); 
+            }
+            camera.followPlayer();
+        }
+        
+        function gameLoop() { 
+            update(); 
+            draw(); 
+            requestAnimationFrame(gameLoop); 
+        }
+
+        function playSound(type) { if (!audioInitialized) return; const oscillator = audioCtx.createOscillator(); const gainNode = audioCtx.createGain(); oscillator.connect(gainNode); gainNode.connect(audioCtx.destination); gainNode.gain.setValueAtTime(0, audioCtx.currentTime); gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.01); switch(type) { case 'jump': oscillator.frequency.setValueAtTime(300, audioCtx.currentTime); oscillator.frequency.linearRampToValueAtTime(500, audioCtx.currentTime + 0.1); break; case 'coin': oscillator.type = 'square'; oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); break; case 'stomp': oscillator.type = 'triangle'; oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); oscillator.frequency.linearRampToValueAtTime(220, audioCtx.currentTime + 0.15); break; case 'death': oscillator.type = 'sawtooth'; oscillator.frequency.setValueAtTime(200, audioCtx.currentTime); oscillator.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.5); break; case 'win': oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); setTimeout(() => oscillator.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.2), 200); setTimeout(() => oscillator.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.4), 400); break; case 'powerup-appears': oscillator.frequency.setValueAtTime(220, audioCtx.currentTime); oscillator.frequency.linearRampToValueAtTime(880, audioCtx.currentTime + 0.2); break; case 'powerup-collect': oscillator.frequency.setValueAtTime(659.25, audioCtx.currentTime); break; case 'pipe': oscillator.type = 'sawtooth'; oscillator.frequency.setValueAtTime(300, audioCtx.currentTime); oscillator.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.2); break; case 'break': oscillator.type = 'noise'; gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.15); break; case 'bump': oscillator.type = 'sawtooth'; oscillator.frequency.setValueAtTime(110, audioCtx.currentTime); gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1); break;} gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2); oscillator.start(); oscillator.stop(audioCtx.currentTime + 0.2); }
+        
+        function triggerBlockBump(block) {
+            if (!block.isAnimating) {
+                block.isAnimating = true;
+                block.animYOffset = 0;
+                block.animVelocityY = -3;
+            }
+        }
+        function createDebrisEffect(x, y) {
+            for (let i = 0; i < 4; i++) {
+                effects.push({
+                    type: 'debris',
+                    x: x + blockSize / 2,
+                    y: y + blockSize / 2,
+                    width: 10,
+                    height: 10,
+                    velocityX: (Math.random() - 0.5) * 8,
+                    velocityY: -5 - Math.random() * 5,
+                    timer: 60
+                });
+            }
+        }
+
+        function isSpaceFree(x, y, width, height) {
+            for (const p of [...platforms, ...interactiveBlocks]) {
+                if (x < p.x + p.width && x + width > p.x && y < p.y + p.height && y + height > p.y) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function populateLevel(spawnSurfaces) { 
+            coins = []; enemies = []; let spawnSlots = []; 
+            spawnSurfaces.forEach(surface => { 
+                if (surface.width >= 50 && surface.height <= 40) { // Tylko na płaskich platformach/ziemi
+                    const availableSlots = Math.floor(surface.width / 50); 
+                    for (let i = 0; i < availableSlots; i++) { 
+                        spawnSlots.push({ x: surface.x + (i * 50) + 15, y: surface.y, patrolRange: { start: surface.x, end: surface.x + surface.width } }); 
+                    } 
+                } 
+            }); 
+            for (let i = spawnSlots.length - 1; i > 0; i--) { 
+                const j = Math.floor(Math.random() * (i + 1)); 
+                [spawnSlots[i], spawnSlots[j]] = [spawnSlots[j], spawnSlots[i]]; 
+            } 
+            const maxEnemies = Math.min(2 + currentLevel, Math.floor(spawnSlots.length * 0.4)); 
+            const numEnemies = Math.floor(Math.random() * (maxEnemies + 1));
+            for (let i = 0; i < numEnemies; i++) { 
+                if(spawnSlots.length === 0) break; 
+                const slot = spawnSlots.pop();
+                if(isSpaceFree(slot.x, slot.y - 30, 30, 30)) {
+                    enemies.push({ x: slot.x, y: slot.y - 30, width: 30, height: 30, speed: 1, direction: 1, patrolRange: slot.patrolRange }); 
+                }
+            } 
+            const minCoins = 15; const maxCoins = Math.min(spawnSlots.length, 40); 
+            const numCoins = Math.floor(Math.random() * (maxCoins - minCoins + 1)) + minCoins; 
+            for (let i = 0; i < numCoins; i++) { 
+                if(spawnSlots.length === 0) break; 
+                const slot = spawnSlots.pop();
+                if(isSpaceFree(slot.x, slot.y - 40, 20, 20)) {
+                    coins.push({ x: slot.x, y: slot.y - 40, width: 20, height: 20 }); 
+                }
+            } 
+        }
+        
+        function generateStairs(startX, startY, height, spawnSurfaces) {
+            for (let i = 0; i < height; i++) { 
+                for (let j = 0; j <= i; j++) { 
+                    const blockX = startX + i * blockSize;
+                    const blockY = startY - (j + 1) * blockSize;
+                    platforms.push({ x: blockX, y: blockY, width: blockSize, height: blockSize, color: '#d35400'});
+                }
+                const topY = startY - (i + 1) * blockSize;
+                spawnSurfaces.push({x: startX + i * blockSize, y: topY, width: blockSize, height: blockSize});
+            }
+            return { x: startX + height * blockSize, y: startY - height * blockSize };
+        }
+
+        function generatePyramid(startX, startY, height, spawnSurfaces) { 
+            const width = height * 2 - 1; 
+            const pyramidWidth = width * blockSize;
+            for (let i = 0; i < height; i++) { 
+                const y = startY - (i + 1) * blockSize; 
+                const rowWidth = (width - i * 2) * blockSize; 
+                const rowX = startX + i * blockSize;
+                for(let k = 0; k < (width - i * 2); k++) {
+                    platforms.push({ x: rowX + k * blockSize, y: y, width: blockSize, height: blockSize, color: '#d35400' }); 
+                }
+                if (i === height - 1) spawnSurfaces.push({ x: rowX, y: y, width: rowWidth, height: blockSize }); 
+            } 
+            return { x: startX + pyramidWidth, y: startY }; 
+        }
+        
+        function generateBlockRow(startX, startY, width) {
+            const rowLength = Math.floor(width / blockSize);
+            let powerUpPlaced = false;
+            const powerUpPosition = Math.floor(Math.random() * (rowLength - 2)) + 1;
+
+            for (let i = 0; i < rowLength; i++) {
+                const blockX = startX + i * blockSize;
+                const isInteractive = Math.random() < 0.3; // Zmniejszona szansa na pytajnik
+                if (isInteractive) {
+                    let contains = 'coin';
+                    if (i === powerUpPosition && !powerUpPlaced) {
+                        contains = 'powerup';
+                        powerUpPlaced = true;
+                    }
+                    interactiveBlocks.push({ x: blockX, y: startY, width: blockSize, height: blockSize, type: 'interactive', isUsed: false, contains: contains });
+                } else {
+                    platforms.push({ x: blockX, y: startY, width: blockSize, height: blockSize, color: '#d35400' });
+                }
+            }
+             if (!powerUpPlaced && rowLength > 2) {
+                const firstInteractive = interactiveBlocks.find(b => b.y === startY && b.x >= startX);
+                if (firstInteractive) {
+                    firstInteractive.contains = 'powerup';
+                }
+            }
+        }
+
+        function generateLevel() { 
+            platforms = []; interactiveBlocks = []; powerUps = []; effects = [];
+            let spawnSurfaces = []; 
+            const startGround = { x: 0, y: groundY, width: 400, height: 40, color: '#27ae60' };
+            platforms.push(startGround); 
+            spawnSurfaces.push({x: 0, y: groundY, width: 400, height: 40});
+            let lastEndpoint = { x: 400, y: groundY };
+
+            while (lastEndpoint.x < worldWidth - 800) { 
+                const baseDifficulty = 0.1;
+                const rampDifficulty = (1 - baseDifficulty) * ((currentLevel - 1) / (currentLevel - 1 + 5));
+                const difficultyFactor = baseDifficulty + rampDifficulty;
+
+                const maxJumpHeight = Math.abs((player.jumpStrength * player.jumpStrength) / (2 * gravity)) * 0.9;
+                
+                const easyMinGap = 40;
+                const easyMaxGap = 80;
+                const hardMinGap = 80;
+                const hardMaxGap = 150;
+                
+                const currentMinGap = easyMinGap + (hardMinGap - easyMinGap) * difficultyFactor;
+                const currentMaxGap = easyMaxGap + (hardMaxGap - easyMaxGap) * difficultyFactor;
+
+                const gap = Math.random() * (currentMaxGap - currentMinGap) + currentMinGap;
+
+                const currentVerticalRange = maxJumpHeight * difficultyFactor;
+                let nextY = lastEndpoint.y + (Math.random() * 2 - 1) * currentVerticalRange;
+                nextY = Math.min(nextY, groundY);
+                nextY = Math.max(nextY, 150);
+                
+                let cursorX = lastEndpoint.x + gap;
+                let sectionWidth = 0;
+                const rand = Math.random();
+                
+                const groundChance = 0.4 - (0.2 * difficultyFactor); // Ziemia rzadsza na wyższych poziomach
+
+                if (nextY === groundY || rand < groundChance) {
+                    const minLength = 5;
+                    const maxLength = 13;
+                    const currentMinLength = Math.floor(maxLength - (maxLength - minLength) * difficultyFactor);
+                    const groundSegmentWidth = (Math.floor(Math.random() * (maxLength - currentMinLength + 1)) + currentMinLength) * blockSize;
+                    
+                    const groundSegment = { x: cursorX, y: groundY, width: groundSegmentWidth, height: 40, color: '#27ae60' };
+                    platforms.push(groundSegment);
+                    spawnSurfaces.push(groundSegment);
+
+                    if (Math.random() < 0.5) {
+                        generateBlockRow(cursorX + blockSize, groundY - blockSize * 4, groundSegmentWidth - (blockSize * 2));
+                    }
+                    sectionWidth = groundSegmentWidth;
+                    lastEndpoint = {x: cursorX + sectionWidth, y: groundY};
+                } else if (rand < groundChance + 0.3) {
+                    const structureHeight = Math.floor(Math.random() * 3 + 2); 
+                    const isStairs = Math.random() < 0.5; 
+                    const groundSegment = { x: cursorX, y: groundY, width: 500, height: 40, color: '#27ae60' };
+                     if(!platforms.find(p => p.x === cursorX && p.y === groundY)) {
+                        platforms.push(groundSegment); 
+                        spawnSurfaces.push(groundSegment);
+                     }
+                    
+                    if (isStairs) {
+                        const endpoint = generateStairs(cursorX, groundY, structureHeight, spawnSurfaces);
+                        lastEndpoint = endpoint;
+                        sectionWidth = endpoint.x - cursorX;
+                    } else {
+                        const endpoint = generatePyramid(cursorX, groundY, structureHeight, spawnSurfaces);
+                        lastEndpoint = endpoint;
+                         sectionWidth = endpoint.x - cursorX;
+                    }
+                }
+                else { 
+                    const minLength = 3;
+                    const maxLength = 8;
+                    const currentMinLength = Math.floor(maxLength - (maxLength - minLength) * difficultyFactor);
+                    const platformWidth = (Math.floor(Math.random() * (maxLength - currentMinLength + 1)) + currentMinLength) * blockSize;
+                    
+                    const lowerPlatform = { x: cursorX, y: nextY, width: platformWidth, height: 20, color: '#2ecc71' };
+                    platforms.push(lowerPlatform);
+                    spawnSurfaces.push({ ...lowerPlatform });
+                    
+                    const blockRowY = lowerPlatform.y - (blockSize * 4);
+                    generateBlockRow(cursorX, blockRowY, platformWidth);
+                    sectionWidth = platformWidth;
+                    lastEndpoint = {x: cursorX + sectionWidth, y: nextY};
+                } 
+            } 
+            const finalGround = { x: lastEndpoint.x, y: groundY, width: worldWidth - lastEndpoint.x, height: 40, color: '#27ae60' };
+            platforms.push(finalGround);
+            spawnSurfaces.push(finalGround);
+            goal = { x: worldWidth - 150, y: groundY - 50, width: 50, height: 50 }; 
+            populateLevel(spawnSurfaces); 
+            levelData = { 
+                platforms: JSON.parse(JSON.stringify(platforms)), 
+                coins: JSON.parse(JSON.stringify(coins)), 
+                enemies: JSON.parse(JSON.stringify(enemies)), 
+                goal: JSON.parse(JSON.stringify(goal)),
+                interactiveBlocks: JSON.parse(JSON.stringify(interactiveBlocks))
+            }; 
+        }
+        
+        function resetLevel(generateNew = false) { 
+            player.x = 100; 
+            player.y = 500;
+            player.velocityY = 0;
+            player.state = 'small';
+            player.height = 40;
+            player.width = 40;
+            player.invincibleTimer = 0;
+            score = 0; 
+            levelComplete = false; 
+            gameOver = false; 
+            powerUps = [];
+            effects = [];
+            if (generateNew) {
+                generateLevel();
+            } else {
+                platforms = JSON.parse(JSON.stringify(levelData.platforms)); 
+                coins = JSON.parse(JSON.stringify(levelData.coins)); 
+                enemies = JSON.parse(JSON.stringify(levelData.enemies)); 
+                goal = JSON.parse(JSON.stringify(levelData.goal)); 
+                interactiveBlocks = JSON.parse(JSON.stringify(levelData.interactiveBlocks));
+            }
+            camera.y = (groundY + 40) - canvas.height;
+            camera.followPlayer();
+        }
+        
+        // INICJALIZACJA GRY
+        loadSprites();
+    </script>
+</body>
+</html>
+
